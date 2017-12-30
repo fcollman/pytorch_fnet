@@ -11,4 +11,5 @@ setup(name='pytorch_fnet',
       author_email='gregj@alleninstitute.org',
       url='https://github.com/AllenCellModeling/pytorch_fnet',
       packages=['fnet'],
-      install_requires=required)
+      install_requires=required,
+      setup_required=['wheel'])
