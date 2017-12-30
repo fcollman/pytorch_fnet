@@ -15,7 +15,7 @@ import shutil
 import json
 import warnings
 import argschema
-from argschema.fields import Int, InputFile, Float, List, Boolean, OutputDir
+from argschema.fields import Int, Str,InputFile, Float, List, Boolean, OutputDir
 
 class TrainParameter(argschema.ArgSchema):
     batch_size = Int(required=False, default=24,description="size of each batch")
