@@ -14,87 +14,94 @@ import sys
 import shutil
 import json
 import warnings
+import argschema
+from argschema.fields import Int, InputFile, Float
+
+class TrainParameter(argschema.ArgSchema):
+    batch_size = Int(required=False, default=24,description="size of each batch")
+    buffer_size = Int(required=False,default=5,description="number of images to cache in memory")
+    path_train_csv = InputFile(required=True,description="path to train set csv")
+    path_test_csv = InputFile(required=True,description="path to test set csv")
+    gpu_ids = List(Int, required=False, default = [0], description = "GPU IDs")
+    iter_checkpoint = Int(required=False, default = 500, description="iterations between saving log/model checkpoints")
+    lr = Float(required=False, default =0.001,description="learning rate")
+    model_module = Str(required=False, default ="fnet_model", help = "name of the model module")
+    n_iter = Int(required=False, default=500, description="number of training iterations")
+    scale_z = Float(default=.3, help = "desired um/px scale for z dimension")
+    scale_xy = Fload(default=.3, help = "desired um/px scale for x, y dimensions")
+    transforms_signal = List(Str, default=['fnet.data.sub_mean_norm'],
+        description='transform to be applied to signal images')
+    transforms_target = List(Str, default=['fnet.data.sub_mean_norm'],
+        description='transform to be applied to target images')
+    no_checkpoint_testing = Boolean(default=False,description='set to disable testing at checkpoints')
+    nn_module = Str(default='ttf_v8_nn', description= 'name of neural network module')
+    replace_interval = Int(default=-1, description = 'iterations between replacements of images in cache' )
+    path_run_dir = OutputDir(default = 'saved_models', description = 'base directory for saved models')
+    seed = Int(description = "random seed")
+    name_dataset_module = Str(default = 'fnet.data.dataset', description = 'name of dataset module with DataSet class')
+    choices_augmentation = List(Int, default=[], description="list of augmentation choices")
+
 
 def main():
     time_start = time.time()
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--batch_size', type=int, default=24, help='size of each batch')
-    parser.add_argument('--buffer_size', type=int, default=5, help='number of images to cache in memory')
-    parser.add_argument('--path_train_csv', help='path to training set csv')
-    parser.add_argument('--path_test_csv', help='path to test set csv')
-    parser.add_argument('--gpu_ids', type=int, nargs='+', default=0, help='GPU ID')
-    parser.add_argument('--iter_checkpoint', type=int, default=500, help='iterations between saving log/model checkpoints')
-    parser.add_argument('--lr', type=float, default=0.001, help='learning rate')
-    parser.add_argument('--model_module', default='fnet_model', help='name of the model module')
-    parser.add_argument('--n_iter', type=int, default=500, help='number of training iterations')
-    parser.add_argument('--scale_z', type=float, default=0.3, help='desired um/px scale for z dimension')
-    parser.add_argument('--scale_xy', type=float, default=0.3, help='desired um/px scale for x, y dimensions')
-    parser.add_argument('--transforms_signal', nargs='+', default=['fnet.data.sub_mean_norm'], help='transform to be applied to signal images')
-    parser.add_argument('--transforms_target', nargs='+', default=['fnet.data.sub_mean_norm'], help='transform to be applied to target images')
-    parser.add_argument('--no_checkpoint_testing', action='store_true', help='set to disable testing at checkpoints')
-    parser.add_argument('--nn_module', default='ttf_v8_nn', help='name of neural network module')
-    parser.add_argument('--replace_interval', type=int, default=-1, help='iterations between replacements of images in cache')
-    parser.add_argument('--path_run_dir', default='saved_models', help='base directory for saved models')
-    parser.add_argument('--seed', type=int, help='random seed')
-    parser.add_argument('--name_dataset_module', default='fnet.data.dataset', help='name of dataset module with DataSet class')
-    parser.add_argument('--choices_augmentation', nargs='+', type=(lambda x: None if x == 'None' else int(x)), help='data augmentation setting')
-    opts = parser.parse_args()
-    model_module = importlib.import_module('model_modules.' + opts.model_module)
+    parser = argschema.ArgSchemaParser(schema_type=TrainParameter)
+
+    model_module = importlib.import_module('model_modules.' + opts.args['args']['model_module'])
     
-    if not os.path.exists(opts.path_run_dir):
-        os.makedirs(opts.path_run_dir)
+    if not os.path.exists(opts.args['path_run_dir']):
+        os.makedirs(opts.args['path_run_dir'])
 
     logger = logging.getLogger('model training')
     logger.setLevel(logging.DEBUG)
-    fh = logging.FileHandler(os.path.join(opts.path_run_dir, 'run.log'), mode='a')
+    fh = logging.FileHandler(os.path.join(opts.args['path_run_dir'], 'run.log'), mode='a')
     sh = logging.StreamHandler(sys.stdout)
     fh.setFormatter(logging.Formatter('%(asctime)s - %(message)s'))
     logger.addHandler(fh)
     logger.addHandler(sh)
     warnings.showwarning = lambda *args, **kwargs : logger.warning(warnings.formatwarning(*args, **kwargs))
 
-    main_gpu_id = opts.gpu_ids if isinstance(opts.gpu_ids, int) else opts.gpu_ids[0]
+    main_gpu_id = opts.args['gpu_ids'] if isinstance(opts.args['gpu_ids'], int) else opts.args['gpu_ids'][0]
     torch.cuda.set_device(main_gpu_id)
     logger.info('main GPU ID: {:d}'.format(torch.cuda.current_device()))
 
-    if opts.seed is not None:
-        np.random.seed(opts.seed)
-        torch.manual_seed(opts.seed)
-        torch.cuda.manual_seed_all(opts.seed)
+    if opts.args['seed'] is not None:
+        np.random.seed(opts.args['seed'])
+        torch.manual_seed(opts.args['seed'])
+        torch.cuda.manual_seed_all(opts.args['seed'])
 
     model = model_module.Model(
-        nn_module=opts.nn_module,
-        lr=opts.lr,
-        gpu_ids=opts.gpu_ids,
+        nn_module=opts.args['nn_module'],
+        lr=opts.args['lr'],
+        gpu_ids=opts.args['gpu_ids'],
     )
-    path_model = os.path.join(opts.path_run_dir, 'model.p')
+    path_model = os.path.join(opts.args['path_run_dir'], 'model.p')
     if os.path.exists(path_model):
         model.load_state(path_model)
         logger.info('model loaded from: {:s}'.format(path_model))
     logger.info(model)
     
-    path_losses_csv = os.path.join(opts.path_run_dir, 'losses.csv')
+    path_losses_csv = os.path.join(opts.args['path_run_dir'], 'losses.csv')
     df_losses = pd.DataFrame()
     if os.path.exists(path_model):
         df_losses = pd.read_csv(path_losses_csv)
         
-    path_ds = os.path.join(opts.path_run_dir, 'ds.json')
+    path_ds = os.path.join(opts.args['path_run_dir'], 'ds.json')
     if not os.path.exists(path_ds):
-        path_train_csv_copy = os.path.join(opts.path_run_dir, os.path.basename(opts.path_train_csv))
-        path_test_csv_copy = os.path.join(opts.path_run_dir, os.path.basename(opts.path_test_csv))
+        path_train_csv_copy = os.path.join(opts.args['path_run_dir'], os.path.basename(opts.args['path_train_csv']))
+        path_test_csv_copy = os.path.join(opts.args['path_run_dir'], os.path.basename(opts.args['path_test_csv']))
         if not os.path.exists(path_train_csv_copy):
-            shutil.copyfile(opts.path_train_csv, path_train_csv_copy)
+            shutil.copyfile(opts.args['path_train_csv'], path_train_csv_copy)
         if not os.path.exists(path_test_csv_copy):
-            shutil.copyfile(opts.path_test_csv, path_test_csv_copy)
+            shutil.copyfile(opts.args['path_test_csv'], path_test_csv_copy)
         fnet.data.save_dataset_as_json(
             path_train_csv = path_train_csv_copy,
             path_test_csv = path_test_csv_copy,
-            scale_z = opts.scale_z if opts.scale_z > 0 else None,
-            scale_xy = opts.scale_xy if opts.scale_xy > 0 else None,
-            transforms_signal = opts.transforms_signal,
-            transforms_target = opts.transforms_target,
+            scale_z = opts.args['scale_z'] if opts.args['scale_z'] > 0 else None,
+            scale_xy = opts.args['scale_xy'] if opts.args['scale_xy'] > 0 else None,
+            transforms_signal = opts.args['transforms_signal'],
+            transforms_target = opts.args['transforms_target'],
             path_save = path_ds,
-            name_dataset_module = opts.name_dataset_module,
+            name_dataset_module = opts.args['name_dataset_module'],
         )
     dataset = fnet.load_dataset_from_json(
         path_load = path_ds,
@@ -103,14 +110,14 @@ def main():
 
     data_provider = fnet.data.ChunkDataProvider(
         dataset,
-        buffer_size=opts.buffer_size,
-        batch_size=opts.batch_size,
-        replace_interval=opts.replace_interval,
-        choices_augmentation=opts.choices_augmentation,
+        buffer_size=opts.args['buffer_size'],
+        batch_size=opts.args['batch_size'],
+        replace_interval=opts.args['replace_interval'],
+        choices_augmentation=opts.args['choices_augmentation'],
     )
 
     data_provider_nonchunk = None
-    if not opts.no_checkpoint_testing:
+    if not opts.args['no_checkpoint_testing']:
         dims_cropped = (32, '/16', '/16')
         cropper = fnet.transforms.Cropper(dims_cropped, offsets=('mid', 0, 0))
         transforms_nonchunk = (cropper, cropper)
@@ -119,10 +126,10 @@ def main():
             transforms=transforms_nonchunk,
         )
     
-    with open(os.path.join(opts.path_run_dir, 'train_options.json'), 'w') as fo:
+    with open(os.path.join(opts.args['path_run_dir'], 'train_options.json'), 'w') as fo:
         json.dump(vars(opts), fo, indent=4, sort_keys=True)
 
-    for i in range(model.count_iter, opts.n_iter):
+    for i in range(model.count_iter, opts.args['n_iter']):
         x, y = data_provider.get_batch()
         l2_batch = model.do_train_iter(x, y)
         
@@ -133,10 +140,10 @@ def main():
             sources = data_provider.last_sources,
         )
         df_losses_curr = pd.concat([df_losses, pd.DataFrame([dict_iter])], ignore_index=True)
-        if ((i + 1) % opts.iter_checkpoint == 0) or ((i + 1) == opts.n_iter):
+        if ((i + 1) % opts.args['iter_checkpoint'] == 0) or ((i + 1) == opts.args['n_iter']):
             if data_provider_nonchunk is not None:
                 # path_checkpoint_dir = os.path.join(path_run_dir, 'output_{:05d}'.format(i + 1))
-                path_checkpoint_dir = os.path.join(opts.path_run_dir, 'output')
+                path_checkpoint_dir = os.path.join(opts.args['path_run_dir'], 'output')
                 data_provider_nonchunk.use_train_set()
                 dict_iter.update(fnet.test_model(
                     model,
