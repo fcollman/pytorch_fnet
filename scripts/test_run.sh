@@ -20,7 +20,7 @@ python train_model.py \
        --path_test_csv ${PATH_DATA_TEST} \
        --batch_size 24 \
        --nn_module ttf_v8_nn \
-       --no_checkpoint_testing \
+       --no_checkpoint_testing true \
        --path_run_dir ${RUN_DIR} \
        --gpu_ids ${GPU_IDS}
 
