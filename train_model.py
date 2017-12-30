@@ -28,7 +28,7 @@ class TrainParameter(argschema.ArgSchema):
     model_module = Str(required=False, default ="fnet_model", help = "name of the model module")
     n_iter = Int(required=False, default=500, description="number of training iterations")
     scale_z = Float(default=.3, help = "desired um/px scale for z dimension")
-    scale_xy = Fload(default=.3, help = "desired um/px scale for x, y dimensions")
+    scale_xy = Float(default=.3, help = "desired um/px scale for x, y dimensions")
     transforms_signal = List(Str, default=['fnet.data.sub_mean_norm'],
         description='transform to be applied to signal images')
     transforms_target = List(Str, default=['fnet.data.sub_mean_norm'],
@@ -44,7 +44,7 @@ class TrainParameter(argschema.ArgSchema):
 
 def main():
     time_start = time.time()
-    parser = argschema.ArgSchemaParser(schema_type=TrainParameter)
+    opts = argschema.ArgSchemaParser(schema_type=TrainParameter)
 
     model_module = importlib.import_module('model_modules.' + opts.args['args']['model_module'])
     
