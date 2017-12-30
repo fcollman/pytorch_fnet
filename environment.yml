@@ -136,4 +136,5 @@ dependencies:
   - jupyter-core==4.4.0
   - prompt-toolkit==1.0.15
   - torch==0.3.0
+  - argschema=1.15.15
 prefix: /opt/conda/envs/pytorch_fnet
