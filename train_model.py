@@ -46,7 +46,7 @@ def main():
     time_start = time.time()
     opts = argschema.ArgSchemaParser(schema_type=TrainParameter)
 
-    model_module = importlib.import_module('model_modules.' + opts.args['args']['model_module'])
+    model_module = importlib.import_module('model_modules.' + opts.args['model_module'])
     
     if not os.path.exists(opts.args['path_run_dir']):
         os.makedirs(opts.args['path_run_dir'])
