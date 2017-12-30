@@ -64,10 +64,11 @@ def main():
     torch.cuda.set_device(main_gpu_id)
     logger.info('main GPU ID: {:d}'.format(torch.cuda.current_device()))
 
-    if opts.args['seed'] is not None:
-        np.random.seed(opts.args['seed'])
-        torch.manual_seed(opts.args['seed'])
-        torch.cuda.manual_seed_all(opts.args['seed'])
+    seed = opts.args.get('seed', None)
+    if seed is not None:
+        np.random.seed(seed)
+        torch.manual_seed(seed)
+        torch.cuda.manual_seed_all(seed)
 
     model = model_module.Model(
         nn_module=opts.args['nn_module'],
