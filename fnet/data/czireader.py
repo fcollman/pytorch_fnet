@@ -1,6 +1,8 @@
+from dataobject import DataObject
 import aicsimage.io as io
 import os
 import pdb
+
 
 def get_czi_metadata(element, tag_list):
     """
@@ -28,7 +30,7 @@ def get_czi_metadata(element, tag_list):
     return values
 
 
-class CziReader(object):
+class CziReader(DataObject):
     def __init__(self, path_czi):
         with io.cziReader.CziReader(path_czi) as reader:
             # self.czi_reader = io.cziReader.CziReader(path_czi)

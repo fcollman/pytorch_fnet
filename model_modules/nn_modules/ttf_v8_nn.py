@@ -5,12 +5,39 @@ import pdb
 # changed from v5: removed ReLU at output
 
 class Net(torch.nn.Module):
-    def __init__(self):
+    """Fnet core torch model
+
+    Parameters
+    ----------
+    mult_chan: int
+        number of output convolutions to produce at each layer of unet default=32
+    depth: in
+        number of steps up/down the unet (default 4)
+    n_in_channels: int
+        number of 3d input channels (default 1)
+    n_out_channels: int
+        number of 3d output channels (default 1)
+    kernel_size: int 
+        size in pixels of convolution kernels at each step (default 3)
+    padding: int
+        amount of padding to use in pixels (default 1)
+    """
+
+    def __init__(self,mult_chan = 32,
+                      depth=4,
+                      n_in_channels=1,
+                      n_out_channels=1,
+                      kernel_size=3,
+                      padding=1):
+    
         super().__init__()
-        mult_chan = 32
-        depth = 4
-        self.net_recurse = _Net_recurse(n_in_channels=1, mult_chan=mult_chan, depth=depth)
-        self.conv_out = torch.nn.Conv3d(mult_chan,  1, kernel_size=3, padding=1)
+        self.net_recurse = _Net_recurse(n_in_channels=n_in_channels,
+                                        mult_chan=mult_chan,
+                                        depth=depth)
+        self.conv_out = torch.nn.Conv3d(mult_chan,
+                                        n_out_channels,
+                                        kernel_size=kernel_size,
+                                        padding=padding)
 
     def forward(self, x):
         x_rec = self.net_recurse(x)
@@ -21,10 +48,14 @@ class _Net_recurse(torch.nn.Module):
     def __init__(self, n_in_channels, mult_chan=2, depth=0):
         """Class for recursive definition of U-network.p
 
-        Parameters:
-        in_channels - (int) number of channels for input.
-        mult_chan - (int) factor to determine number of output channels
-        depth - (int) if 0, this subnet will only be convolutions that double the channel count.
+        Parameters
+        ----------
+        in_channels: int
+            number of channels for input.
+        mult_chan: int
+            factor to determine number of output channels (default 2)
+        depth: int
+            if 0, this subnet will only be convolutions that double the channel count. (default 0)
         """
         super().__init__()
         self.depth = depth

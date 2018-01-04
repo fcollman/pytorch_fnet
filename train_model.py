@@ -18,10 +18,12 @@ import argschema
 from argschema.fields import Int, Str,InputFile, Float, List, Boolean, OutputDir
 
 class TrainParameter(argschema.ArgSchema):
-    batch_size = Int(required=False, default=24,description="size of each batch")
-    buffer_size = Int(required=False,default=5,description="number of images to cache in memory")
     path_train_csv = InputFile(required=True,description="path to train set csv")
     path_test_csv = InputFile(required=True,description="path to test set csv")
+
+    batch_size = Int(required=False, default=24,description="size of each batch")
+    buffer_size = Int(required=False,default=5,description="number of images to cache in memory")
+
     gpu_ids = List(Int, required=False, default = [0], description = "GPU IDs")
     iter_checkpoint = Int(required=False, default = 500, description="iterations between saving log/model checkpoints")
     lr = Float(required=False, default =0.001,description="learning rate")
@@ -38,9 +40,21 @@ class TrainParameter(argschema.ArgSchema):
     replace_interval = Int(default=-1, description = 'iterations between replacements of images in cache' )
     path_run_dir = OutputDir(default = 'saved_models', description = 'base directory for saved models')
     seed = Int(description = "random seed")
-    name_dataset_module = Str(default = 'fnet.data.dataset', description = 'name of dataset module with DataSet class')
+    name_dataset_class = Str(default = 'fnet.data.czidataset.CziDataSet', description = 'name of dataset module with DataSet class')
     choices_augmentation = List(Int, default=[], description="list of augmentation choices")
 
+class TrainModel(argschema.ArgSchemaParser):
+    default_schema = TrainParameter
+
+    def __init__(*args,**kwargs):
+        super(self,TrainModel).__init__(*args,**kwargs)
+
+        fh = logging.FileHandler(os.path.join(self.args['path_run_dir'], 'run.log'), mode='a')
+        sh = logging.StreamHandler(sys.stdout)
+        fh.setFormatter(logging.Formatter('%(asctime)s - %(message)s'))
+        self.logger.addHandler(fh)
+        self.logger.addHandler(sh)
+        warnings.showwarning = lambda *args, **kwargs : self.logger.warning(warnings.formatwarning(*args, **kwargs))
 
 def main():
     time_start = time.time()
@@ -51,14 +65,7 @@ def main():
     if not os.path.exists(opts.args['path_run_dir']):
         os.makedirs(opts.args['path_run_dir'])
 
-    logger = logging.getLogger('model training')
-    logger.setLevel(logging.DEBUG)
-    fh = logging.FileHandler(os.path.join(opts.args['path_run_dir'], 'run.log'), mode='a')
-    sh = logging.StreamHandler(sys.stdout)
-    fh.setFormatter(logging.Formatter('%(asctime)s - %(message)s'))
-    logger.addHandler(fh)
-    logger.addHandler(sh)
-    warnings.showwarning = lambda *args, **kwargs : logger.warning(warnings.formatwarning(*args, **kwargs))
+    logger = opts.logger
 
     main_gpu_id = opts.args['gpu_ids'] if isinstance(opts.args['gpu_ids'], int) else opts.args['gpu_ids'][0]
     torch.cuda.set_device(main_gpu_id)
@@ -102,7 +109,7 @@ def main():
             transforms_signal = opts.args['transforms_signal'],
             transforms_target = opts.args['transforms_target'],
             path_save = path_ds,
-            name_dataset_module = opts.args['name_dataset_module'],
+            name_dataset_module = opts.args['name_dataset_class'],
         )
     dataset = fnet.load_dataset_from_json(
         path_load = path_ds,
@@ -128,7 +135,7 @@ def main():
         )
     
     with open(os.path.join(opts.args['path_run_dir'], 'train_options.json'), 'w') as fo:
-        json.dump(vars(opts), fo, indent=4, sort_keys=True)
+        json.dump(opts.args, fo, indent=4, sort_keys=True)
 
     for i in range(model.count_iter, opts.args['n_iter']):
         x, y = data_provider.get_batch()

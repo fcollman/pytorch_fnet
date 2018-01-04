@@ -95,10 +95,10 @@ def load_dataset_from_json(path_load):
         transforms_signal = [get_obj(i) for i in dict_ds.get('transforms_signal')]
     if dict_ds.get('transforms_target') is not None:
         transforms_target = [get_obj(i) for i in dict_ds.get('transforms_target')]
-    name_dataset_module = dict_ds.get('name_dataset_module', 'fnet.data.dataset')
+    name_dataset_class = dict_ds.get('name_dataset_class', 'fnet.data.czidataset.CziDataSet')
     transforms = (transforms_signal, transforms_target)
-    dataset_module = importlib.import_module(name_dataset_module)
-    dataset = dataset_module.DataSet(
+    dataset_module = importlib.import_module(name_dataset_class)
+    dataset = dataset_module(
         path_train_csv = dict_ds['path_train_csv'],
         path_test_csv = dict_ds['path_test_csv'],
         scale_z = dict_ds['scale_z'],
