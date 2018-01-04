@@ -8,6 +8,16 @@ import collections
 import warnings
 from fnet.transforms import Resizer
 
+def get_obj(a):
+    a = a.replace('fnet.data', 'fnet.transforms') # hardcode for old naming
+    if a is None:
+        return None
+    a_list = a.split('.')
+    obj = getattr(sys.modules[__name__], a_list[0])
+    for i in range(1, len(a_list)):
+        obj = getattr(obj, a_list[i])
+    return obj
+
 def get_str_transform(transforms):
     # Return the string representation of the given transforms
     if transforms is None:
@@ -26,9 +36,13 @@ def get_str_transform(transforms):
     return (os.linesep + '            ').join(all_transforms)
 
 class DataSet(object):
-    def __init__(self,transforms=None):
+    def __init__(self,transforms_source=None,transforms_target=None):
         self._train_select = True
-        self.transforms=transforms
+        if transforms_source is not None:
+            transforms_signal = map(get_obj,transforms_source)
+        if transforms_target is not None:
+            transforms_target = map(get_obj,transforms_target)
+        self.transforms=(transforms_signal,transforms_target)
     
     def __len__(self):
         pass
@@ -123,8 +137,8 @@ class DataSet(object):
 
 class CsvDataSet(DataSet):
 
-    def __init__(self,path_train_csv,
-                 path_test_csv,*args,**kwargs):
+    def __init__(self,path_train_csv=None,
+                 path_test_csv=None,*args,**kwargs):
         super(CziDataSet,self).__init__(*args,**kwargs)
         self.df_train = pd.read_csv(path_train_csv) if path_train_csv is not None else pd.DataFrame()
         self.df_test = pd.read_csv(path_test_csv) if path_test_csv is not None else pd.DataFrame()

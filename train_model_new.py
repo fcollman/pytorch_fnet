@@ -21,20 +21,20 @@ from marshmallow import post_load
 
 class DataSetParameters(argschema.schemas.DefaultSchema):
     path_save = OutputFile(required=False, description = "path to save training set (default")
-
-class CziDataSetParameters(DataSetParameters):
-    path_train_csv = InputFile(required=True,description="path to train set csv")
-    path_test_csv = InputFile(required=True,description="path to test set csv")
-    scale_z = Float(default=.3, help = "desired um/px scale for z dimension")
-    scale_xy = Float(default=.3, help = "desired um/px scale for x, y dimensions")
     transforms_signal = List(Str, default=['fnet.data.sub_mean_norm'],
         description='transform to be applied to signal images')
     transforms_target = List(Str, default=['fnet.data.sub_mean_norm'],
         description='transform to be applied to target images')
-    
-class TrainParameter(argschema.ArgSchema):
+        
+class CsvDataSetParameters(DataSetParameters):
+    path_train_csv = InputFile(required=True,description="path to train set csv")
+    path_test_csv = InputFile(required=True,description="path to test set csv")
 
+class CziDataSetParameters(DataSetParameters):
+    scale_z = Float(default=.3, help = "desired um/px scale for z dimension")
+    scale_xy = Float(default=.3, help = "desired um/px scale for x, y dimensions")
 
+class TrainParameterBase(argschema.ArgSchema):
     batch_size = Int(required=False, default=24,description="size of each batch")
     buffer_size = Int(required=False,default=5,description="number of images to cache in memory")
 
@@ -51,13 +51,15 @@ class TrainParameter(argschema.ArgSchema):
     seed = Int(description = "random seed")
     name_dataset_class = Str(default = 'fnet.data.czidataset.CziDataSet', description = 'name of dataset module with DataSet class')
     choices_augmentation = List(Int, default=[], description="list of augmentation choices")
-
-    dataset = Nested(CziDataSetParameters, description="parameters to control the dataset")
-
+    dataset = Nested(DataSetParameters, description="parameters to control the czi based dataset")
+    
     @post_load
     def add_missing_values(self, data):
         if data['dataset']['path_save'] is None:
             data['dataset']['path_save'] = os.path.join(data['path_run_dir'], 'model.p')
+
+class TrainParameterCzi(TrainParameterBase.ArgSchema):
+    dataset = Nested(CziDataSetParameters, description="parameters to control the czi based dataset")
 
 def checkpoint_model(dict_iter, model, data_provider_nonchunk, path_checkpoint_dir):
     data_provider_nonchunk.use_train_set()
@@ -98,13 +100,13 @@ def train_model(model,
         if ((i + 1) % iter_checkpoint == 0) or ((i + 1) == n_iter):
             if data_provider_nonchunk is not None:
                 dict_iter = checkpoint_model(dict_iter,model,data_provider_noncheck,path_checkpoint_dir)
-                df_losses_curr = pd.concat([df_losses, pd.DataFrame([dict_iter])], ignore_index=True)
-                
+                df_losses_curr = pd.concat([df_losses, pd.DataFrame([dict_iter])], ignore_index=True)    
             model.save_state(path_model)
             df_losses_curr.to_csv(path_losses_csv, index=False)
             logger.info('model saved to: {:s}'.format(path_model))
             logger.info('elapsed time: {:.1f} s'.format(time.time() - time_start))
         df_losses = df_losses_curr
+    return model
 
 
 class TrainModel(argschema.ArgSchemaParser):
