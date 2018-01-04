@@ -25,7 +25,7 @@ class DataSetParameters(argschema.schemas.DefaultSchema):
         description='transform to be applied to signal images')
     transforms_target = List(Str, default=['fnet.data.sub_mean_norm'],
         description='transform to be applied to target images')
-        
+
 class CsvDataSetParameters(DataSetParameters):
     path_train_csv = InputFile(required=True,description="path to train set csv")
     path_test_csv = InputFile(required=True,description="path to test set csv")
@@ -197,21 +197,11 @@ class TrainModel(argschema.ArgSchemaParser):
                                  path_checkpoint_dir,
                                  self.logger,
                                  self.data_provider_nonchunk)
+        self.logger.info('total training time: {:.1f} s'.format(time.time() - time_start))
 
 def main():
-    
     mod = argschema.ArgSchemaParser(schema_type=TrainParameter)
     mod.run()
-    
-    
-    
-
-    
-    
-
-
-    logger.info('total training time: {:.1f} s'.format(time.time() - time_start))
-
     
 if __name__ == '__main__':
     main()
