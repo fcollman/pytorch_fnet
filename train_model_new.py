@@ -182,14 +182,19 @@ class TrainModel(argschema.ArgSchemaParser):
         with open(filepath, 'w') as fo:
             json.dump(self.args, fo, indent=4, sort_keys=True)
 
-    
-
     def run():
         time_start = time.time()
         self.initialize_model()
         self.load_dataset()
         self.save_module_parameters(os.path.join(self.args['path_run_dir'], 'train_options.json'))
-
+        path_checkpoint_dir = os.path.join(self.args['path_run_dir'], 'output')
+        self.model = train_model(model, 
+                                 self.data_provider,
+                                 self.args['n_iter'],
+                                 self.args['iter_checkpoint'],
+                                 path_checkpoint_dir,
+                                 self.logger,
+                                 self.data_provider_nonchunk)
 
 def main():
     
