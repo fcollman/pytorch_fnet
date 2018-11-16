@@ -4,7 +4,7 @@ import pandas as pd
 import numpy as np
 import tifffile
 import fnet.data
-import model_modules.fnet_model as model_module
+import fnet.nn_modules.fnet_nn_3d as model_module
 import time
 import os
 import pdb
@@ -203,6 +203,29 @@ def combine_partials(path_partials_dir, ar_canvas):
     df.assign(**update_df).to_csv(path_save_update_csv, index=False)
     print('wrote csv:', path_save_update_csv)
     
+def get_dataloader(remaining_iterations, opts):
+    transform_signal = [eval(t) for t in opts.transform_signal]
+    transform_target = [eval(t) for t in opts.transform_target]
+    ds = getattr(fnet.data, opts.class_dataset)(
+        path_csv = opts.path_dataset_csv,
+        transform_source = transform_signal,
+        transform_target = transform_target,
+    )
+    print(ds)
+    ds_patch = fnet.data.ChunkDataProvider(
+        dataset = ds,
+        patch_size = opts.patch_size,
+        buffer_size = opts.buffer_size,
+        buffer_switch_frequency = opts.buffer_switch_frequency,
+        npatches = remaining_iterations*opts.batch_size,
+        verbose = True,
+        shuffle_images = False,
+    )
+    dataloader = torch.utils.data.DataLoader(
+        ds_patch,
+        batch_size = opts.batch_size,
+    )
+    return dataloader
 
 def main():
     parser = argparse.ArgumentParser()
@@ -213,6 +236,11 @@ def main():
     parser.add_argument('--overlap', type=int, default=16, help='overlap between prediction partials')
     parser.add_argument('--pixels_max', type=int, default=9732096, help='max number of pixels in input volumes')
     parser.add_argument('--img_sel', type=int, nargs='+', help='select elements of dataset')
+    parser.add_argument('--n_in_channels',type=int,default=1,help='number of input channels')
+    parser.add_argument('--class_dataset', default='CziDataset', help='Dataset class')
+    parser.add_argument('--transform_signal', nargs='+', default=['fnet.transforms.normalize', default_resizer_str], help='list of transforms on Dataset signal')
+    parser.add_argument('--transform_target', nargs='+', default=['fnet.transforms.normalize', default_resizer_str], help='list of transforms on Dataset target')
+    
     opts = parser.parse_args()
     
     df_models = get_df_models(opts.path_source)
@@ -227,7 +255,7 @@ def main():
             model = model_module.Model(
                 gpu_ids=opts.gpu_ids,
             )
-            model.load_state(model_info['path_model'])
+            model.load_state(model_info['path_model'],n_in_channels = opt.n_in_channels)
         print('*** Model ***')
         print(model)
         

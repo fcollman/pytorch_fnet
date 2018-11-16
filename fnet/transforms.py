@@ -40,7 +40,7 @@ class Propper(object):
         return self.transformer.undo_last(x_in)
 
 class Padder(object):
-    def __init__(self, padding='+', by=16, mode='constant'):
+    def __init__(self, padding='+', by=16, mode='constant', exclude_dims=None):
         """
         padding: '+', int, sequence
           '+': pad dimensions up to multiple of "by"
@@ -50,11 +50,13 @@ class Padder(object):
           for use with '+' padding option
         mode: str
           passed to numpy.pad function
+        exclude_dims: list
+          dimensions to not pad on (default None)
         """
         self.padding = padding
         self.by = by
         self.mode = mode
-        
+        self.exclude_dims=exclude_dims
         self.pads = {}
         self.last_pad = None
 
@@ -87,12 +89,15 @@ class Padder(object):
     def __call__(self, x_in):
         shape_in = x_in.shape
         pad_width = self.pads.get(shape_in, self._calc_pad_width(shape_in))
+        if self.exclude_dims is not None:
+            for d in self.exclude_dims:
+                pad_width[d]=shape_in[d]
+                
         x_out = np.pad(x_in, pad_width, mode=self.mode)
         if shape_in not in self.pads:
             self.pads[shape_in] = pad_width
         self.last_pad = {'shape_in': shape_in, 'pad_width': pad_width, 'shape_out': x_out.shape}
         return x_out
-    
 
 class Cropper(object):
     def __init__(self, cropping, by=16, offset='mid', n_max_pixels=9732096):

@@ -23,8 +23,7 @@ def get_dataset(opts, propper):
     ds = getattr(fnet.data, opts.class_dataset)(
         path_csv = opts.path_dataset_csv,
         transform_source = transform_signal,
-        transform_target = transform_target,
-    )
+        transform_target = transform_target)
     print(ds)
     return ds
 
@@ -66,11 +65,12 @@ def main():
     parser.add_argument('--path_dataset_csv', type=str, help='path to csv for constructing Dataset')
     parser.add_argument('--path_model_dir', nargs='+', default=[], help='path to model directory')
     parser.add_argument('--path_save_dir', help='path to output directory')
+    parser.add_argument('--n_in_channels',type=int,default=1,help='number of input channels')
     parser.add_argument('--propper_kwargs', type=json.loads, default={}, help='path to output directory')
     parser.add_argument('--transform_signal', nargs='+', default=['fnet.transforms.normalize', default_resizer_str], help='list of transforms on Dataset signal')
     parser.add_argument('--transform_target', nargs='+', default=['fnet.transforms.normalize', default_resizer_str], help='list of transforms on Dataset target')
     opts = parser.parse_args()
-
+    print(opts.class_dataset)
     if os.path.exists(opts.path_save_dir):
         print('Output path already exists.')
         return
@@ -79,6 +79,7 @@ def main():
             opts.propper_kwargs['n_max_pixels'] = 6000000
     propper = fnet.transforms.Propper(**opts.propper_kwargs)
     print(propper)
+    print(opts.class_dataset)
     model = None
     dataset = get_dataset(opts, propper)
     entries = []
@@ -96,7 +97,7 @@ def main():
 
         for path_model_dir in opts.path_model_dir:
             if model is None or len(opts.path_model_dir) > 1:
-                model = fnet.load_model_from_dir(path_model_dir, opts.gpu_ids)
+                model = fnet.load_model_from_dir(path_model_dir, opts.gpu_ids,n_in_channels=opts.n_in_channels)
                 print(model)
                 name_model = os.path.basename(path_model_dir)
             prediction = model.predict(signal)

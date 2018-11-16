@@ -47,12 +47,6 @@ class ChunkDataProvider(object):
         
         self.choices_augmentation = choices_augmentation
 
-    def use_test_set(self):
-        self._dataset.use_test_set()
-        
-    def use_train_set(self):
-        self._dataset.use_train_set()
-
     def set_dims_pin(self, dims_pin):
         self._dims_pin = dims_pin
 

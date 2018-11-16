@@ -10,6 +10,7 @@ import sys
 import time
 import torch
 import warnings
+import pdb
 
 def get_dataloader(remaining_iterations, opts):
     transform_signal = [eval(t) for t in opts.transform_signal]
@@ -81,14 +82,17 @@ def main():
     #Instantiate Model
     path_model = os.path.join(opts.path_run_dir, 'model.p')
     if os.path.exists(path_model):
-        model = fnet.load_model_from_dir(opts.path_run_dir, gpu_ids=opts.gpu_ids)
+        model = fnet.load_model_from_dir(opts.path_run_dir,
+                                         gpu_ids=opts.gpu_ids)
         logger.info('model loaded from: {:s}'.format(path_model))
     else:
         model = fnet.fnet_model.Model(
             nn_module=opts.nn_module,
             lr=opts.lr,
             gpu_ids=opts.gpu_ids,
+            criterion_fn=torch.nn.BCEWithLogitsLoss
         )
+        model._init_model()
         logger.info('Model instianted from: {:s}'.format(opts.nn_module))
     logger.info(model)
 
@@ -108,9 +112,13 @@ def main():
     
     with open(os.path.join(opts.path_run_dir, 'train_options.json'), 'w') as fo:
         json.dump(vars(opts), fo, indent=4, sort_keys=True)
-
+    weights = torch.FloatTensor(np.array([[1.0,1.0],[1.0,10.0]]))
     for i, (signal, target) in enumerate(dataloader_train, model.count_iter):
-        loss_batch = model.do_train_iter(signal, target)
+        #weights = torch.from_numpy(np.ones(target.shape,dtype=np.float32))
+        #for k,w in enumerate([20]):
+        #    weights[k,...]+=target[k,...]*(w-1)    
+
+        loss_batch = model.do_train_iter(signal, target,weights=None)
         fnetlogger.add({'num_iter': i + 1, 'loss_batch': loss_batch})
         print('num_iter: {:6d} | loss_batch: {:.3f}'.format(i + 1, loss_batch))
         dict_iter = dict(

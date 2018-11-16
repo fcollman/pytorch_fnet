@@ -18,15 +18,15 @@ class Model(object):
         self.criterion_fn = criterion_fn
         self.count_iter = 0
         self.gpu_ids = [gpu_ids] if isinstance(gpu_ids, int) else gpu_ids
-        
+        self.weighted_criterion = criterion_fn(reduce=False)
         self.criterion = criterion_fn()
         self._init_model()
 
-    def _init_model(self):
+    def _init_model(self,**kwargs):
         if self.nn_module is None:
             self.net = None
             return
-        self.net = importlib.import_module('fnet.nn_modules.' + self.nn_module).Net()
+        self.net = importlib.import_module('fnet.nn_modules.' + self.nn_module).Net(**kwargs)
         if self.init_weights:
             self.net.apply(_weights_init)
         if self.gpu_ids[0] >= 0:
@@ -67,23 +67,28 @@ class Model(object):
         torch.save(self.get_state(), path_save)
         self.to_gpu(curr_gpu_ids)
 
-    def load_state(self, path_load, gpu_ids=-1):
+    def load_state(self, path_load, gpu_ids=-1,**modelkwargs):
         state_dict = torch.load(path_load)
         self.nn_module = state_dict['nn_module']
-        self._init_model()
+        self._init_model(**modelkwargs)
         self.net.load_state_dict(state_dict['nn_state'])
         self.optimizer.load_state_dict(state_dict['optimizer_state'])
         self.count_iter = state_dict['count_iter']
         self.to_gpu(gpu_ids)
 
-    def do_train_iter(self, signal, target):
+    def do_train_iter(self, signal, target,weights=None):
         self.net.train()
         if self.gpu_ids[0] >= 0:
             signal_v = torch.autograd.Variable(signal.cuda(self.gpu_ids[0]))
             target_v = torch.autograd.Variable(target.cuda(self.gpu_ids[0]))
+            if weights is not None:
+                weight_v = torch.autograd.Variable(weights.cuda(self.gpu_ids[0]))
         else:
             signal_v = torch.autograd.Variable(signal)
             target_v = torch.autograd.Variable(target)
+            if weights is not None:
+                weight_v = torch.autograd.Variable(weights)
+                
         if len(self.gpu_ids) > 1:
             module = torch.nn.DataParallel(
                 self.net,
@@ -93,7 +98,12 @@ class Model(object):
             module = self.net
         self.optimizer.zero_grad()
         output = module(signal_v)
-        loss = self.criterion(output, target_v)
+        if weights is not None:
+            loss = self.weighted_criterion(output, target_v)
+            loss = loss*weight_v
+            loss = loss.mean()
+        else:
+            loss = self.criterion(output, target_v)
         loss.backward()
         self.optimizer.step()
         self.count_iter += 1
